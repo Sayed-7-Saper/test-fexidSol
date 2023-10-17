@@ -1,0 +1,1 @@
+{"Modules":[{"Key":"network","Source":"./Modules/network","Dir":"Modules/network"},{"Key":"","Source":"","Dir":"."},{"Key":"ECR","Source":"./Modules/ECR","Dir":"Modules/ECR"},{"Key":"EKS","Source":"./Modules/EKS","Dir":"Modules/EKS"},{"Key":"jenkins","Source":"./Modules/EC2","Dir":"Modules/EC2"}]}

@@ -1,0 +1,93 @@
+pipeline {
+    agent any
+    environment {
+        AWS_DEFAULT_REGION = 'us-east-1'
+        ECR_REGISTRY = "${AC_ID}.dkr.ecr.us-east-1.amazonaws.com"
+    }
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git branch: 'jenkins_CI', url: 'https://github.com/Sayed-7-Saper/test-fexidSol.git'
+
+            }
+        }
+        stage('Install Terraform') {
+            steps {
+                sh 'wget https://releases.hashicorp.com/terraform/0.12.30/terraform_0.12.30_linux_amd64.zip'
+                sh 'unzip terraform_0.12.30_linux_amd64.zip -d /usr/local/bin/'
+                sh 'terraform --version'
+            }
+        }
+        stage('Terraform Init') {
+            steps {
+                script {
+                    cd 'test-fexidSol/terraform'
+                    sh 'terraform init'
+                }
+            }
+        }
+        stage('Terraform Plan') {
+            steps {
+                script {
+                    cd 'test-fexidSol/terraform'
+                    sh 'terraform plan -auto-approve '
+                }
+            }
+        }
+        stage('Terraform Apply') {
+            steps {
+                script {
+                    cd 'test-fexidSol/terraform'
+                    sh 'terraform apply -auto-approve '
+                }
+            }
+        }
+        stage('Upload State to S3') {
+            steps {
+                script {
+                    sh 'aws s3 cp terraform.tfstate s3://fixedSol/terraform.tfstate'
+                }
+            }
+        }
+        stage('ECR Login') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds-id',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']])
+                    {
+                        script {
+                            sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY"
+                        }
+                    }
+            }  
+        }
+
+
+
+
+        stage('Terraform Destroy') {
+            when {
+                expression {
+                    currentBuild.resultIsBetterOrEqualTo('FAILURE')
+                }
+            }
+            steps {
+                cd 'test-fexidSol/terraform'
+                sh 'terraform destroy -auto-approve '
+            }
+        }
+    }
+    post {
+        always {
+            cleanWs()
+        }
+
+        failure {
+            emailext subject: 'Terraform Pipeline Failed',
+            body: 'The Terraform pipeline has failed. Please check the build for details.',
+            to: 'test@example.com'
+        }
+    }
+}
